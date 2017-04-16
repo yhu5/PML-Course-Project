@@ -1,0 +1,100 @@
+---
+title: "Practical Machine Learning Course Project"
+author: "YHu"
+date: "April 16, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Summary
+
+The goal of this course project is to predict the manner of exericse -"classe" variable in the data, using other predictors in the dataset. I utilized random forest to do the prediction and validated on the test cases.
+
+## Data Preparation
+After reading the training and testing datasets, I took a look at the distribution of "classe" variable in the data.
+```{r results='hide', message=FALSE, warning=FALSE}
+library(caret)
+library(randomForest)
+library(corrplot)
+library(dplyr)
+```
+
+```{r, eval=TRUE}
+train <-read.csv("pml-training.csv",header=TRUE, na.strings=c("NA",""))
+test <- read.csv("pml-testing.csv",header=TRUE, na.strings=c("NA",""))
+```
+
+```{r echo=TRUE}
+table(train$classe)
+```
+
+In addition, I also briefly viewed the data using the `head` function.
+```{r, eval=FALSE}
+head(train)
+```
+
+Noticing that there are a lot of missing values in the several variables, I removed from the data columns with all NAs. 
+
+```{r echo=TRUE}
+na_count <-function (x) sapply(x, function(y) sum(is.na(y)))
+na_train<-(na_count(train)==0)
+train <- train[,na_train]
+```
+
+Also columns that seem to be non-predictive were removed.
+```{r echo=TRUE}
+col.del <- grepl("X|user|timestamp|newwindow",colnames(train))
+train <- train[,!col.del]
+```
+
+The training dataset was split into 70% train and 30% validation sets.
+```{r echo=TRUE}
+train.id<-createDataPartition(y=train$classe,p=0.7,list=FALSE)
+train_new <- train[train.id,]
+valid <- train[-train.id,]
+```
+
+I made the formula for the model to prepare for following model fitting.
+```{r echo=TRUE}
+predictors<-colnames(train_new%>%dplyr::select(-classe))
+full.formula<-reformulate(predictors,"classe")
+full.formula
+```
+
+##Fit the Random Forest model
+A Random Forest model was fitted using all the predictors in the training dataset with "classe" as target.
+```{r, eval=FALSE}
+rf<-randomForest(full.formula,
+                 data=train_new,
+                 importance=TRUE,
+                 ntree=500)
+```
+```{r echo=FALSE}
+load("project.rda")
+```
+The model was then applied to the validation dataset.
+```{r echo=TRUE}
+pred.rf<-predict(rf,valid)
+```
+A look at the confusion matrix.
+```{r echo=TRUE}
+confusionMatrix(pred.rf,valid$classe)
+```
+We can also look at the variable importance obtained from random forest
+```{r echo=TRUE}
+rf.importance<-rf$importance
+rf.importance
+```
+
+##Predict the test cases
+Finally the model was applied to the test dataset to predict the test cases
+```{r echo=TRUE}
+pred.test<-predict(rf,test)
+pred.test
+```
+
+
